@@ -1,0 +1,132 @@
+const byte rowsCount = 4;
+const byte columsCount = 4;
+
+char keys[rowsCount][columsCount] = {
+  { '1', '2', '3', 'A' },
+  { '4', '5', '6', 'B' },
+  { '7', '8', '9', 'C' },
+  { '*', '0', '#', 'D' }
+};
+
+const byte rowPins[rowsCount] = { 13, 12, 9, 8 };
+const byte columnPins[columsCount] = { 7, 6, 5, 4 };
+
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, columnPins, rowsCount, columsCount);
+
+Servo breakFree;
+Servo channel;
+byte breakFreePin = 10;
+byte channelPin = 11;
+
+byte trigPin = 2;
+byte echoPin = 3;
+
+void setup() {
+  Serial.begin(9600);
+  breakFree.attach(breakFreePin);
+  channel.attach(channelPin);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+}
+
+void loop() {
+  //Serial.println(breakFreePin);
+  //Serial.println(channelPin);
+  char key = keypad.waitForKey();
+  int pause = 1000;
+  if (key == '*') {
+    Serial.println("Iniciando...");
+    do {
+      Serial.println("Velocidad (A, B, C, D)");
+      key = keypad.waitForKey();
+      Serial.println(key);
+    } while (key != 'A' && key != 'B' && key != 'C' && key != 'D') ;
+    switch (key) {
+      case 'B':
+        pause = 1500;
+        break;
+      case 'C':
+        pause = 2000;
+        break;
+      case 'D':
+        pause = 2500;
+        break;
+    }
+    do {
+      Serial.println("Ingrese cantidad de esferas disponibles");
+      key = keypad.waitForKey();
+      Serial.println(key);
+    } while (askNumber(key) || key == '0' || key == '1' || key == '2');
+    byte balls = key - 48;
+    //Serial.println(balls);
+    byte r1 = 0, r2 = 0, r3 = 0;
+    do {
+      Serial.println("Ingrese cantidad de esferas para recipiente 1");
+      key = keypad.waitForKey();
+      r1 = key - 48;
+      Serial.println(r1);
+    } while (askNumber(key) || r1 > balls);
+    balls -= r1;
+    Serial.print(balls);
+    Serial.println(" esferas disponibles");
+    if (balls != 0) {
+      do {
+        Serial.println("Ingrese cantidad de esferas para recipiente 2");
+        key = keypad.waitForKey();
+        r2 = key - 48;
+        Serial.println(r2);
+      } while (askNumber(key) || r2 > balls);
+      balls -= r2;
+      r3 = balls;
+      Serial.print("Recipiente 1: ");
+      Serial.println(r1);
+      Serial.print("Recipiente 2: ");
+      Serial.println(r2);
+      Serial.print("Recipiente 3: ");
+      Serial.println(r3);
+      //channel.write(75);
+      //breakFree.write(0);
+      move(75, pause, r1);
+      move(90, pause, r2);
+      move(105, pause, r3);
+      channel.write(90);
+      Serial.println("Tarea finalizada\n\n");
+    }
+    //Serial.print(balls);
+  }
+}
+
+byte askNumber(char key) {
+  return ((!(isAlphaNumeric(key))) || key == 'A' || key == 'B' || key == 'C' || key == 'D');
+}
+
+void move(byte angle, int pause, byte balls) {
+  long duration, distancy ;
+  while (balls > 0) {
+    delay(500);
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    duration = pulseIn(echoPin, HIGH);
+    distancy = duration / 2 / 29.1  ;
+    Serial.println(distancy);
+    if (distancy > 1480 && distancy < 1600) {
+      breakFree.write(180);
+      channel.write(angle);
+      for (int i = 180; i >= 100; i--) {
+        delay(7);
+        breakFree.write(i);
+      }
+      for (int i = 100; i <= 180; i++) {
+        delay(7);
+        breakFree.write(i);
+      }
+      delay(pause);
+      Serial.print('.');
+      balls--;
+    }
+  }
+  Serial.println();
+}
